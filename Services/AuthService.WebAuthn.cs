@@ -101,6 +101,38 @@ public partial class AuthService
         catch (Exception ex) { LastError = ex.Message; return false; }
     }
 
+    public async Task<List<PasskeyDto>?> GetPasskeysAsync()
+    {
+        LastError = null;
+        try
+        {
+            var response = await SendAuthenticatedAsync(HttpMethod.Get, "api/auth/webauthn/credentials");
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = await ReadErrorAsync(response);
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<List<PasskeyDto>>();
+        }
+        catch (Exception ex) { LastError = ex.Message; return null; }
+    }
+
+    public async Task<bool> DeletePasskeyAsync(Guid credentialId)
+    {
+        LastError = null;
+        try
+        {
+            var response = await SendAuthenticatedAsync(HttpMethod.Delete, $"api/auth/webauthn/credentials/{credentialId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = await ReadErrorAsync(response);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
     // register-options/register-complete are [Authorize] on MyFamilyAuth's side — _mfaHttp has no
     // RefreshTokenHandler attaching a token automatically (unlike _http), so it's attached here.
     private async Task<HttpResponseMessage> SendAuthenticatedAsync(HttpMethod method, string path, object? body = null)

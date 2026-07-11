@@ -1,3 +1,4 @@
+using TWR.MyFamilyAuth.Contracts.DTOs.WebAuthn;
 using TWR.Shared.Auth.Models;
 
 namespace TWR.Shared.Auth.Services;
@@ -17,6 +18,12 @@ public interface IAuthService
 
     /// <summary>Registers a new passkey for the currently authenticated user. For an already-signed-in Settings page, not the login flow.</summary>
     Task<bool> RegisterPasskeyAsync(string? deviceLabel = null);
+
+    /// <summary>Lists the current user's passkeys registered for this app's origin. Null on failure.</summary>
+    Task<List<PasskeyDto>?> GetPasskeysAsync();
+
+    /// <summary>Revokes one of the current user's passkeys.</summary>
+    Task<bool> DeletePasskeyAsync(Guid credentialId);
 
     /// <summary>Silently exchanges the stored refresh token for a new access token. Used by RefreshTokenHandler on a 401.</summary>
     Task<bool> TryRefreshAsync();

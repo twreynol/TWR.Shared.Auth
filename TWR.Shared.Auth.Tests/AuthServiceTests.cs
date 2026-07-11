@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using TWR.MyFamilyAuth.Contracts.DTOs.Auth;
+using TWR.MyFamilyAuth.Contracts.DTOs.WebAuthn;
 using TWR.Shared.Auth.Models;
 using TWR.Shared.Auth.Services;
 
@@ -220,6 +221,65 @@ public class AuthServiceTests
         var error = await svc.ChangePasswordAsync(UserId, "wrong-current", "NewP@ss1!");
 
         Assert.Contains("Current password is incorrect.", error);
+    }
+
+    [Fact]
+    public async Task GetPasskeysAsync_Success_ReturnsListFromMyFamilyAuthDirectly()
+    {
+        var passkeys = new List<PasskeyDto> { new(Guid.NewGuid(), "My Laptop", DateTime.UtcNow, DateTime.UtcNow) };
+        var (svc, handler, store) = Build(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(passkeys) });
+        store.AccessToken = "token";
+
+        var result = await svc.GetPasskeysAsync();
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal("My Laptop", result[0].DeviceLabel);
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal("mfa.example", request.RequestUri!.Host);
+        Assert.Equal("/api/auth/webauthn/credentials", request.RequestUri!.AbsolutePath);
+        Assert.Equal(HttpMethod.Get, request.Method);
+    }
+
+    [Fact]
+    public async Task GetPasskeysAsync_Failure_ReturnsNullAndSetsLastError()
+    {
+        var (svc, _, store) = Build(_ =>
+            new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("Unable to list passkeys.") });
+        store.AccessToken = "token";
+
+        var result = await svc.GetPasskeysAsync();
+
+        Assert.Null(result);
+        Assert.Contains("Unable to list passkeys.", svc.LastError);
+    }
+
+    [Fact]
+    public async Task DeletePasskeyAsync_Success_ReturnsTrue()
+    {
+        var credId = Guid.NewGuid();
+        var (svc, handler, store) = Build(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        store.AccessToken = "token";
+
+        var ok = await svc.DeletePasskeyAsync(credId);
+
+        Assert.True(ok);
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal($"/api/auth/webauthn/credentials/{credId}", request.RequestUri!.AbsolutePath);
+        Assert.Equal(HttpMethod.Delete, request.Method);
+    }
+
+    [Fact]
+    public async Task DeletePasskeyAsync_Failure_ReturnsFalseAndSetsLastError()
+    {
+        var (svc, _, store) = Build(_ => new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("Not found.") });
+        store.AccessToken = "token";
+
+        var ok = await svc.DeletePasskeyAsync(Guid.NewGuid());
+
+        Assert.False(ok);
+        Assert.Contains("Not found.", svc.LastError);
     }
 
     [Fact]
