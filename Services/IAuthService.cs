@@ -31,6 +31,12 @@ public interface IAuthService
 
     string? GetToken();
 
+    /// <summary>
+    /// The underlying MyFamilyAuth token, set only for apps that reissue their own JWT after
+    /// login (e.g. MyMessages) — null for apps whose own token already IS the MyFamilyAuth token.
+    /// </summary>
+    string? MfaToken { get; }
+
     /// <summary>Human-readable reason the most recent call failed. Null after a successful call.</summary>
     string? LastError { get; }
 }
