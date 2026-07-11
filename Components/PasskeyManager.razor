@@ -1,0 +1,107 @@
+@* Self-contained passkey list + register + revoke UI. Each app drops in <PasskeyManager /> on a
+   Settings/Profile page instead of hand-building this list/register/revoke logic itself. *@
+@inject IAuthService AuthService
+
+<div>
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_error ? "alert-danger" : "alert-success") py-2">@_message</div>
+    }
+
+    @if (_passkeys is null)
+    {
+        <div class="spinner-border spinner-border-sm"></div>
+    }
+    else if (_passkeys.Count > 0)
+    {
+        <ul class="list-group list-group-flush mb-3">
+            @foreach (var p in _passkeys)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span>
+                        <i class="bi bi-fingerprint me-2 text-muted"></i>
+                        @(p.DeviceLabel ?? "Unlabeled passkey")
+                        <span class="text-muted small ms-2">
+                            added @p.CreatedAt.ToLocalTime().ToString("MM/dd/yy")
+                            &middot; last used @p.LastUsedAt.ToLocalTime().ToString("MM/dd/yy")
+                        </span>
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAsync(p.Id)" disabled="@_busy">
+                        Revoke
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="text-muted small">No passkeys registered yet.</p>
+    }
+
+    <div class="input-group" style="max-width:400px;">
+        <input class="form-control" placeholder="Device label (e.g. My Laptop)" @bind="_label" />
+        <button class="btn btn-primary" @onclick="RegisterAsync" disabled="@_busy">
+            @if (_busy)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Register a Passkey
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<TWR.MyFamilyAuth.Contracts.DTOs.WebAuthn.PasskeyDto>? _passkeys;
+    private string _label = string.Empty;
+    private string _message = string.Empty;
+    private bool _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync() => _passkeys = await AuthService.GetPasskeysAsync() ?? [];
+
+    private async Task RegisterAsync()
+    {
+        _message = string.Empty;
+        _busy = true;
+
+        var label = string.IsNullOrWhiteSpace(_label) ? null : _label.Trim();
+        var ok = await AuthService.RegisterPasskeyAsync(label);
+
+        _busy = false;
+        if (ok)
+        {
+            _message = "Passkey registered. You can now sign in with it on this device.";
+            _error = false;
+            _label = string.Empty;
+            await RefreshAsync();
+        }
+        else
+        {
+            _message = AuthService.LastError ?? "Unable to register passkey.";
+            _error = true;
+        }
+    }
+
+    private async Task RevokeAsync(Guid credentialId)
+    {
+        _message = string.Empty;
+        _busy = true;
+
+        var ok = await AuthService.DeletePasskeyAsync(credentialId);
+
+        _busy = false;
+        if (ok)
+        {
+            _message = "Passkey revoked.";
+            _error = false;
+            await RefreshAsync();
+        }
+        else
+        {
+            _message = AuthService.LastError ?? "Unable to revoke passkey.";
+            _error = true;
+        }
+    }
+}
