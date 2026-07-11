@@ -211,6 +211,17 @@ public partial class AuthService : AuthenticationStateProvider, IAuthService
 
     public string? GetToken() => _store.AccessToken;
 
+    public async Task<string?> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("api/auth/change-password", new { currentPassword, newPassword });
+            if (response.IsSuccessStatusCode) return null;
+            return await ReadErrorAsync(response);
+        }
+        catch (Exception ex) { return ex.Message; }
+    }
+
     public async Task<bool> ForgotPasswordAsync(string email)
     {
         LastError = null;
