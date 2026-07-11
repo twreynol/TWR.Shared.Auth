@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TWR.Shared.Auth.csproj" />
+  <Project Path="TWR.Shared.Auth.Tests/TWR.Shared.Auth.Tests.csproj" />
+</Solution>

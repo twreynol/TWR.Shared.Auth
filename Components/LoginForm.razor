@@ -1,0 +1,216 @@
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="card shadow" style="width:400px">
+    <div class="card-body p-4">
+        <h4 class="card-title text-center mb-4">
+            @if (!string.IsNullOrEmpty(LogoPath))
+            {
+                <img src="@LogoPath" alt="@AppDisplayName" style="height:2rem" class="me-2" />
+            }
+            else
+            {
+                <i class="bi bi-people-fill text-primary me-2"></i>
+            }
+            @AppDisplayName
+        </h4>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2">@_error</div>
+        }
+
+        @if (_view == ViewState.Credentials)
+        {
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" @ref="_emailInput"
+                       @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <div class="input-group">
+                    <input type="@(_showPassword ? "text" : "password")" class="form-control"
+                           @bind="_password" @bind:event="oninput" @onkeydown="OnKeyDown" />
+                    <button class="btn btn-outline-secondary" type="button" tabindex="-1"
+                            @onclick="() => _showPassword = !_showPassword">
+                        <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="text-end mb-2">
+                <a href="@ForgotPasswordUrl" class="small text-decoration-none">Forgot password?</a>
+            </div>
+            <div class="mb-4 form-check">
+                <input class="form-check-input" type="checkbox" id="rememberMe" @bind="_rememberMe" />
+                <label class="form-check-label" for="rememberMe">Remember me</label>
+            </div>
+            <button class="btn btn-primary w-100" @onclick="DoLoginAsync" disabled="@_loading">
+                @if (_loading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                Sign In
+            </button>
+            @if (_passkeySupported && !string.IsNullOrWhiteSpace(_email))
+            {
+                <button class="btn btn-outline-secondary w-100 mt-2" @onclick="DoPasskeyLoginAsync" disabled="@_loading">
+                    <i class="bi bi-fingerprint me-1"></i>Use a passkey instead
+                </button>
+            }
+        }
+        else
+        {
+            <p class="text-center text-muted small mb-4">A 6-digit code was sent to your email address.</p>
+            <div class="mb-3">
+                <label class="form-label">Verification Code</label>
+                <input type="text" class="form-control text-center fs-4" maxlength="6"
+                       @ref="_codeInput" @bind="_otpCode" @bind:event="oninput" placeholder="------" />
+            </div>
+            <div class="mb-4 form-check">
+                <input class="form-check-input" type="checkbox" id="trustDevice" @bind="_trustDevice" />
+                <label class="form-check-label" for="trustDevice">Trust this device for 90 days</label>
+            </div>
+            <button class="btn btn-primary w-100" @onclick="DoVerifyAsync" disabled="@(_loading || _otpCode.Length != 6)">
+                @if (_loading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                Verify
+            </button>
+            <div class="text-center mt-3">
+                <a href="#" @onclick="BackToCredentials" @onclick:preventDefault class="small text-decoration-none">Back to sign in</a>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private enum ViewState { Credentials, TwoFactor }
+
+    private const string RememberedEmailKey = "twr_remember_me_email";
+
+    [Parameter, EditorRequired] public string AppDisplayName { get; set; } = string.Empty;
+    [Parameter] public string? LogoPath { get; set; }
+    [Parameter] public string RedirectAfterLoginUrl { get; set; } = "/";
+    [Parameter] public string? MustChangePasswordRedirectUrl { get; set; }
+    [Parameter] public string ForgotPasswordUrl { get; set; } = "/forgot-password";
+
+    private ViewState _view = ViewState.Credentials;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _otpCode = string.Empty;
+    private string _error = string.Empty;
+    private string? _challengeToken;
+    private bool _loading;
+    private bool _rememberMe;
+    private bool _showPassword;
+    private bool _trustDevice;
+    private bool _passkeySupported;
+    private ElementReference _emailInput;
+    private ElementReference _codeInput;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _passkeySupported = await TryJsAsync(() => JS.InvokeAsync<bool>("twrAuth.isPasskeySupported"));
+
+            var saved = await TryJsAsync(() => JS.InvokeAsync<string?>("localStorage.getItem", RememberedEmailKey));
+            if (!string.IsNullOrEmpty(saved))
+            {
+                _email = saved;
+                _rememberMe = true;
+                StateHasChanged();
+            }
+
+            try { await _emailInput.FocusAsync(); } catch { /* not yet renderable */ }
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoLoginAsync();
+    }
+
+    private async Task DoLoginAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Email and password are required.";
+            return;
+        }
+
+        _loading = true;
+        _error = string.Empty;
+
+        if (_rememberMe)
+            await TryJsAsync(() => JS.InvokeVoidAsync("localStorage.setItem", RememberedEmailKey, _email.Trim()));
+        else
+            await TryJsAsync(() => JS.InvokeVoidAsync("localStorage.removeItem", RememberedEmailKey));
+
+        var result = await AuthService.LoginAsync(_email.Trim(), _password, _rememberMe);
+        HandleResult(result);
+        _loading = false;
+    }
+
+    private async Task DoPasskeyLoginAsync()
+    {
+        _loading = true;
+        _error = string.Empty;
+        var result = await AuthService.LoginWithPasskeyAsync(_email.Trim());
+        HandleResult(result);
+        _loading = false;
+    }
+
+    private void HandleResult(AuthResult result)
+    {
+        switch (result.Outcome)
+        {
+            case AuthOutcome.Success:
+                var target = result.MustChangePassword && MustChangePasswordRedirectUrl is not null
+                    ? MustChangePasswordRedirectUrl
+                    : RedirectAfterLoginUrl;
+                Navigation.NavigateTo(target);
+                break;
+            case AuthOutcome.RequiresTwoFactor:
+                _challengeToken = result.ChallengeToken;
+                _view = ViewState.TwoFactor;
+                break;
+            default:
+                _error = result.ErrorMessage ?? "Invalid email or password.";
+                break;
+        }
+    }
+
+    private async Task DoVerifyAsync()
+    {
+        if (_otpCode.Length != 6 || _challengeToken is null) return;
+        _loading = true;
+        _error = string.Empty;
+        var result = await AuthService.VerifyTwoFactorAsync(_challengeToken, _otpCode, _trustDevice);
+        HandleResult(result);
+        _loading = false;
+    }
+
+    private void BackToCredentials()
+    {
+        _view = ViewState.Credentials;
+        _otpCode = string.Empty;
+        _error = string.Empty;
+        _challengeToken = null;
+    }
+
+    private static async Task<T?> TryJsAsync<T>(Func<ValueTask<T>> call)
+    {
+        try { return await call(); }
+        catch { return default; }
+    }
+
+    private static async Task TryJsAsync(Func<ValueTask> call)
+    {
+        try { await call(); }
+        catch { /* JS interop not ready (prerender) or unavailable — best effort */ }
+    }
+}
