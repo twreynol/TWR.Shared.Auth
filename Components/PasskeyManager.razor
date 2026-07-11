@@ -38,8 +38,11 @@
         <p class="text-muted small">No passkeys registered yet.</p>
     }
 
+    <label class="form-label small mb-1" for="passkey-device-label">
+        Device name <span class="text-muted">(e.g. "My Laptop" or "Tim's Phone") — helps you tell devices apart later</span>
+    </label>
     <div class="input-group" style="max-width:400px;">
-        <input class="form-control" placeholder="Device label (e.g. My Laptop)" @bind="_label" />
+        <input id="passkey-device-label" class="form-control" placeholder="Device name" @bind="_label" @bind:event="oninput" />
         <button class="btn btn-primary" @onclick="RegisterAsync" disabled="@_busy">
             @if (_busy)
             {
@@ -48,6 +51,10 @@
             Register a Passkey
         </button>
     </div>
+    @if (string.IsNullOrWhiteSpace(_label))
+    {
+        <div class="form-text text-warning">Enter a device name so you can recognize this passkey later.</div>
+    }
 </div>
 
 @code {
