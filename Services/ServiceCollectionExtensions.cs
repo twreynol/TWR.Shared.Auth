@@ -25,12 +25,16 @@ public static class ServiceCollectionExtensions
             MyFamilyAuthPublicBaseUrl = myFamilyAuthPublicBaseUrl
         });
 
+        // Registered as a plain HttpClient too (not just wrapped in AppApiHttpClient) — every other
+        // service in the app (BuildInfoService, domain services, etc.) already injects a bare
+        // HttpClient expecting exactly this one: the app's own API, refresh-token-aware.
         services.AddScoped(sp =>
         {
             var store   = sp.GetRequiredService<AuthTokenStore>();
             var handler = new RefreshTokenHandler(store) { InnerHandler = new HttpClientHandler() };
-            return new AppApiHttpClient(new HttpClient(handler) { BaseAddress = new Uri(appApiBaseUrl) });
+            return new HttpClient(handler) { BaseAddress = new Uri(appApiBaseUrl) };
         });
+        services.AddScoped(sp => new AppApiHttpClient(sp.GetRequiredService<HttpClient>()));
 
         services.AddScoped(_ =>
             new MyFamilyAuthHttpClient(new HttpClient { BaseAddress = new Uri(myFamilyAuthPublicBaseUrl) }));

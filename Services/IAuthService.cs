@@ -26,7 +26,16 @@ public interface IAuthService
     Task<bool> ForgotPasswordAsync(string email);
     Task<bool> ResetPasswordAsync(string code, string newPassword);
 
+    /// <summary>For an already-signed-in Settings/Profile page. Returns null on success, or an error message.</summary>
+    Task<string?> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+
     string? GetToken();
+
+    /// <summary>
+    /// The underlying MyFamilyAuth token, set only for apps that reissue their own JWT after
+    /// login (e.g. MyMessages) — null for apps whose own token already IS the MyFamilyAuth token.
+    /// </summary>
+    string? MfaToken { get; }
 
     /// <summary>Human-readable reason the most recent call failed. Null after a successful call.</summary>
     string? LastError { get; }

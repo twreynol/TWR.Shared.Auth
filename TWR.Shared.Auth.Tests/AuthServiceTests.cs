@@ -201,6 +201,28 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task ChangePasswordAsync_Success_ReturnsNull()
+    {
+        var (svc, handler, _) = Build(_ => new HttpResponseMessage(HttpStatusCode.OK));
+
+        var error = await svc.ChangePasswordAsync(UserId, "OldP@ss1!", "NewP@ss1!");
+
+        Assert.Null(error);
+        Assert.Equal("/api/auth/change-password", handler.Requests[0].RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_Failure_ReturnsErrorMessage()
+    {
+        var (svc, _, _) = Build(_ =>
+            new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("Current password is incorrect.") });
+
+        var error = await svc.ChangePasswordAsync(UserId, "wrong-current", "NewP@ss1!");
+
+        Assert.Contains("Current password is incorrect.", error);
+    }
+
+    [Fact]
     public async Task GetToken_ReturnsCurrentlyStoredAccessToken()
     {
         var (svc, _, store) = Build();

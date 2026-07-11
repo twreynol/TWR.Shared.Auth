@@ -1,89 +1,78 @@
+@* No outer card/heading here on purpose — branding (logo, app name, tagline, card chrome)
+   differs deliberately per app and stays in that app's own Login.razor. This component is
+   just the behavior: fields, validation, 2FA transition, passkey option. *@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<div class="card shadow" style="width:400px">
-    <div class="card-body p-4">
-        <h4 class="card-title text-center mb-4">
-            @if (!string.IsNullOrEmpty(LogoPath))
-            {
-                <img src="@LogoPath" alt="@AppDisplayName" style="height:2rem" class="me-2" />
-            }
-            else
-            {
-                <i class="bi bi-people-fill text-primary me-2"></i>
-            }
-            @AppDisplayName
-        </h4>
+<div aria-label="@($"{AppDisplayName} sign in")">
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-2">@_error</div>
+    }
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <div class="alert alert-danger py-2">@_error</div>
-        }
-
-        @if (_view == ViewState.Credentials)
-        {
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" @ref="_emailInput"
-                       @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Password</label>
-                <div class="input-group">
-                    <input type="@(_showPassword ? "text" : "password")" class="form-control"
-                           @bind="_password" @bind:event="oninput" @onkeydown="OnKeyDown" />
-                    <button class="btn btn-outline-secondary" type="button" tabindex="-1"
-                            @onclick="() => _showPassword = !_showPassword">
-                        <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="text-end mb-2">
-                <a href="@ForgotPasswordUrl" class="small text-decoration-none">Forgot password?</a>
-            </div>
-            <div class="mb-4 form-check">
-                <input class="form-check-input" type="checkbox" id="rememberMe" @bind="_rememberMe" />
-                <label class="form-check-label" for="rememberMe">Remember me</label>
-            </div>
-            <button class="btn btn-primary w-100" @onclick="DoLoginAsync" disabled="@_loading">
-                @if (_loading)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                }
-                Sign In
-            </button>
-            @if (_passkeySupported && !string.IsNullOrWhiteSpace(_email))
-            {
-                <button class="btn btn-outline-secondary w-100 mt-2" @onclick="DoPasskeyLoginAsync" disabled="@_loading">
-                    <i class="bi bi-fingerprint me-1"></i>Use a passkey instead
+    @if (_view == ViewState.Credentials)
+    {
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" @ref="_emailInput"
+                   @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <div class="input-group">
+                <input type="@(_showPassword ? "text" : "password")" class="form-control"
+                       @bind="_password" @bind:event="oninput" @onkeydown="OnKeyDown" />
+                <button class="btn btn-outline-secondary" type="button" tabindex="-1"
+                        @onclick="() => _showPassword = !_showPassword">
+                    <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
                 </button>
+            </div>
+        </div>
+        <div class="text-end mb-2">
+            <a href="@ForgotPasswordUrl" class="small text-decoration-none">Forgot password?</a>
+        </div>
+        <div class="mb-4 form-check">
+            <input class="form-check-input" type="checkbox" id="rememberMe" @bind="_rememberMe" />
+            <label class="form-check-label" for="rememberMe">Remember me</label>
+        </div>
+        <button class="btn btn-primary w-100" @onclick="DoLoginAsync" disabled="@_loading">
+            @if (_loading)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
             }
-        }
-        else
+            Sign In
+        </button>
+        @if (_passkeySupported && !string.IsNullOrWhiteSpace(_email))
         {
-            <p class="text-center text-muted small mb-4">A 6-digit code was sent to your email address.</p>
-            <div class="mb-3">
-                <label class="form-label">Verification Code</label>
-                <input type="text" class="form-control text-center fs-4" maxlength="6"
-                       @ref="_codeInput" @bind="_otpCode" @bind:event="oninput" placeholder="------" />
-            </div>
-            <div class="mb-4 form-check">
-                <input class="form-check-input" type="checkbox" id="trustDevice" @bind="_trustDevice" />
-                <label class="form-check-label" for="trustDevice">Trust this device for 90 days</label>
-            </div>
-            <button class="btn btn-primary w-100" @onclick="DoVerifyAsync" disabled="@(_loading || _otpCode.Length != 6)">
-                @if (_loading)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                }
-                Verify
+            <button class="btn btn-outline-secondary w-100 mt-2" @onclick="DoPasskeyLoginAsync" disabled="@_loading">
+                <i class="bi bi-fingerprint me-1"></i>Use a passkey instead
             </button>
-            <div class="text-center mt-3">
-                <a href="#" @onclick="BackToCredentials" @onclick:preventDefault class="small text-decoration-none">Back to sign in</a>
-            </div>
         }
-    </div>
+    }
+    else
+    {
+        <p class="text-center text-muted small mb-4">A 6-digit code was sent to your email address.</p>
+        <div class="mb-3">
+            <label class="form-label">Verification Code</label>
+            <input type="text" class="form-control text-center fs-4" maxlength="6"
+                   @ref="_codeInput" @bind="_otpCode" @bind:event="oninput" placeholder="------" />
+        </div>
+        <div class="mb-4 form-check">
+            <input class="form-check-input" type="checkbox" id="trustDevice" @bind="_trustDevice" />
+            <label class="form-check-label" for="trustDevice">Trust this device for 90 days</label>
+        </div>
+        <button class="btn btn-primary w-100" @onclick="DoVerifyAsync" disabled="@(_loading || _otpCode.Length != 6)">
+            @if (_loading)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Verify
+        </button>
+        <div class="text-center mt-3">
+            <a href="#" @onclick="BackToCredentials" @onclick:preventDefault class="small text-decoration-none">Back to sign in</a>
+        </div>
+    }
 </div>
 
 @code {
@@ -92,7 +81,6 @@
     private const string RememberedEmailKey = "twr_remember_me_email";
 
     [Parameter, EditorRequired] public string AppDisplayName { get; set; } = string.Empty;
-    [Parameter] public string? LogoPath { get; set; }
     [Parameter] public string RedirectAfterLoginUrl { get; set; } = "/";
     [Parameter] public string? MustChangePasswordRedirectUrl { get; set; }
     [Parameter] public string ForgotPasswordUrl { get; set; } = "/forgot-password";

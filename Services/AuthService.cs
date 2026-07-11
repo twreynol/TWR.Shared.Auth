@@ -40,6 +40,8 @@ public partial class AuthService : AuthenticationStateProvider, IAuthService
     private string RefreshTokenKey => _options.AppClientId + RefreshTokenKeySuffix;
     private string DeviceTrustKey  => _options.AppClientId + DeviceTrustKeySuffix;
 
+    public string? MfaToken { get; private set; }
+
     public AuthUiState State     { get; private set; } = AuthUiState.Empty;
     public string?     LastError { get; private set; }
 
@@ -165,6 +167,7 @@ public partial class AuthService : AuthenticationStateProvider, IAuthService
     {
         _store.AccessToken  = result.Token;
         _store.RefreshToken = result.RefreshToken;
+        MfaToken            = result.MfaToken;
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _store.AccessToken);
 
@@ -174,16 +177,14 @@ public partial class AuthService : AuthenticationStateProvider, IAuthService
             catch { /* best effort — in-memory session still works this page load */ }
         }
 
-        var identity = new ClaimsIdentity(new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, result.UserId.ToString()),
-            new Claim(ClaimTypes.Name,           result.FullName),
-            new Claim(ClaimTypes.Email,          result.Email),
-            new Claim(ClaimTypes.Role,           result.Role)
-        }, "jwt");
+        // Identity comes from the token's own claims, not the response body — the body's job is
+        // token transport plus control-flow fields (MustChangePassword, RequiresTwoFactor); the
+        // token is the single source of truth every app already trusts on every subsequent call.
+        var claims = JwtClaimsParser.Parse(result.Token ?? string.Empty);
+        _currentUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
 
-        _currentUser = new ClaimsPrincipal(identity);
-        State = new AuthUiState(true, result.FullName, result.MustChangePassword);
+        var displayName = JwtClaimsParser.DisplayName(claims) ?? result.FullName;
+        State = new AuthUiState(true, displayName, result.MustChangePassword);
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
@@ -210,6 +211,17 @@ public partial class AuthService : AuthenticationStateProvider, IAuthService
     }
 
     public string? GetToken() => _store.AccessToken;
+
+    public async Task<string?> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("api/auth/change-password", new { currentPassword, newPassword });
+            if (response.IsSuccessStatusCode) return null;
+            return await ReadErrorAsync(response);
+        }
+        catch (Exception ex) { return ex.Message; }
+    }
 
     public async Task<bool> ForgotPasswordAsync(string email)
     {
