@@ -1,5 +1,7 @@
 @* Self-contained passkey list + register + revoke UI. Each app drops in <PasskeyManager /> on a
-   Settings/Profile page instead of hand-building this list/register/revoke logic itself. *@
+   Settings/Profile page instead of hand-building this list/register/revoke logic itself.
+   Term lets mobile apps say "Fingerprint" instead of "Passkey" — same underlying WebAuthn credential,
+   just the word users actually recognize on that platform. *@
 @inject IAuthService AuthService
 
 <div>
@@ -20,7 +22,7 @@
                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                     <span>
                         <i class="bi bi-fingerprint me-2 text-muted"></i>
-                        @(p.DeviceLabel ?? "Unlabeled passkey")
+                        @(p.DeviceLabel ?? $"Unlabeled {Term.ToLowerInvariant()}")
                         <span class="text-muted small ms-2">
                             added @p.CreatedAt.ToLocalTime().ToString("MM/dd/yy")
                             &middot; last used @p.LastUsedAt.ToLocalTime().ToString("MM/dd/yy")
@@ -35,7 +37,7 @@
     }
     else
     {
-        <p class="text-muted small">No passkeys registered yet.</p>
+        <p class="text-muted small">No @(Term.ToLowerInvariant())s registered yet.</p>
     }
 
     <label class="form-label small mb-1" for="passkey-device-label">
@@ -48,16 +50,19 @@
             {
                 <span class="spinner-border spinner-border-sm me-2"></span>
             }
-            Register a Passkey
+            Register a @Term
         </button>
     </div>
     @if (string.IsNullOrWhiteSpace(_label))
     {
-        <div class="form-text text-warning">Enter a device name so you can recognize this passkey later.</div>
+        <div class="form-text text-warning">Enter a device name so you can recognize this @(Term.ToLowerInvariant()) later.</div>
     }
 </div>
 
 @code {
+    /// <summary>Display word for a passkey — e.g. "Fingerprint" on mobile apps where that's the recognized term.</summary>
+    [Parameter] public string Term { get; set; } = "Passkey";
+
     private List<TWR.MyFamilyAuth.Contracts.DTOs.WebAuthn.PasskeyDto>? _passkeys;
     private string _label = string.Empty;
     private string _message = string.Empty;
@@ -79,14 +84,14 @@
         _busy = false;
         if (ok)
         {
-            _message = "Passkey registered. You can now sign in with it on this device.";
+            _message = $"{Term} registered. You can now sign in with it on this device.";
             _error = false;
             _label = string.Empty;
             await RefreshAsync();
         }
         else
         {
-            _message = AuthService.LastError ?? "Unable to register passkey.";
+            _message = AuthService.LastError ?? $"Unable to register {Term.ToLowerInvariant()}.";
             _error = true;
         }
     }
@@ -101,13 +106,13 @@
         _busy = false;
         if (ok)
         {
-            _message = "Passkey revoked.";
+            _message = $"{Term} revoked.";
             _error = false;
             await RefreshAsync();
         }
         else
         {
-            _message = AuthService.LastError ?? "Unable to revoke passkey.";
+            _message = AuthService.LastError ?? $"Unable to revoke {Term.ToLowerInvariant()}.";
             _error = true;
         }
     }
