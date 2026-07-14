@@ -25,11 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Explicitly include static web assets (CSS) in the NuGet package -->
-    <Content Include="wwwroot/**" Pack="true" PackagePath="staticwebassets\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
