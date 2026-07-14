@@ -5,9 +5,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PackageId>TWR.Shared.Auth</PackageId>
-    <Version>1.2.3</Version>
+    <Version>1.2.4</Version>
     <RepositoryUrl>https://github.com/twreynol/TWR.Shared.Auth</RepositoryUrl>
     <Description>Shared MyFamilyAuth login experience for the TWR MyApps suite — IAuthService, LoginForm/ForgotPasswordForm components, and passkey (WebAuthn) support, so consuming apps configure and drop in a component instead of hand-building their own auth wiring.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <StaticWebAssetBasePath>_content/TWR.Shared.Auth</StaticWebAssetBasePath>
   </PropertyGroup>
 
   <ItemGroup>
