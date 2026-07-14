@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PackageId>TWR.Shared.Auth</PackageId>
-    <Version>1.2.4</Version>
+    <Version>1.2.5</Version>
     <RepositoryUrl>https://github.com/twreynol/TWR.Shared.Auth</RepositoryUrl>
     <Description>Shared MyFamilyAuth login experience for the TWR MyApps suite — IAuthService, LoginForm/ForgotPasswordForm components, and passkey (WebAuthn) support, so consuming apps configure and drop in a component instead of hand-building their own auth wiring.</Description>
   </PropertyGroup>
@@ -22,6 +22,11 @@
     <Compile Remove="TWR.Shared.Auth.Tests\**" />
     <Content Remove="TWR.Shared.Auth.Tests\**" />
     <None Remove="TWR.Shared.Auth.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Explicitly include static web assets (CSS) in the NuGet package -->
+    <Content Include="wwwroot/**" Pack="true" PackagePath="staticwebassets\" />
   </ItemGroup>
 
   <ItemGroup>
