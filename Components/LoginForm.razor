@@ -85,6 +85,17 @@
     [Parameter] public string? MustChangePasswordRedirectUrl { get; set; }
     [Parameter] public string ForgotPasswordUrl { get; set; } = "/forgot-password";
 
+    /// <summary>
+    /// Optional hook fired on successful login (including after 2FA/passkey) instead of this
+    /// component's own <see cref="Navigation"/>.NavigateTo call. Use this when the app needs to
+    /// build its own local auth state (e.g. a view-model wrapping IAuthService's claims/token)
+    /// before navigating — this component only gathers credentials and calls IAuthService; it
+    /// deliberately does not know about, or reach into, any app-specific state container.
+    /// When not supplied, behavior is unchanged: this component navigates to
+    /// <see cref="RedirectAfterLoginUrl"/> (or <see cref="MustChangePasswordRedirectUrl"/>) itself.
+    /// </summary>
+    [Parameter] public EventCallback<AuthResult> OnLoginSucceeded { get; set; }
+
     private ViewState _view = ViewState.Credentials;
     private string _email = string.Empty;
     private string _password = string.Empty;
@@ -139,7 +150,7 @@
             await TryJsAsync(() => JS.InvokeVoidAsync("localStorage.removeItem", RememberedEmailKey));
 
         var result = await AuthService.LoginAsync(_email.Trim(), _password, _rememberMe);
-        HandleResult(result);
+        await HandleResult(result);
         _loading = false;
     }
 
@@ -148,19 +159,26 @@
         _loading = true;
         _error = string.Empty;
         var result = await AuthService.LoginWithPasskeyAsync(_email.Trim());
-        HandleResult(result);
+        await HandleResult(result);
         _loading = false;
     }
 
-    private void HandleResult(AuthResult result)
+    private async Task HandleResult(AuthResult result)
     {
         switch (result.Outcome)
         {
             case AuthOutcome.Success:
-                var target = result.MustChangePassword && MustChangePasswordRedirectUrl is not null
-                    ? MustChangePasswordRedirectUrl
-                    : RedirectAfterLoginUrl;
-                Navigation.NavigateTo(target);
+                if (OnLoginSucceeded.HasDelegate)
+                {
+                    await OnLoginSucceeded.InvokeAsync(result);
+                }
+                else
+                {
+                    var target = result.MustChangePassword && MustChangePasswordRedirectUrl is not null
+                        ? MustChangePasswordRedirectUrl
+                        : RedirectAfterLoginUrl;
+                    Navigation.NavigateTo(target);
+                }
                 break;
             case AuthOutcome.RequiresTwoFactor:
                 _challengeToken = result.ChallengeToken;
@@ -178,7 +196,7 @@
         _loading = true;
         _error = string.Empty;
         var result = await AuthService.VerifyTwoFactorAsync(_challengeToken, _otpCode, _trustDevice);
-        HandleResult(result);
+        await HandleResult(result);
         _loading = false;
     }
 
